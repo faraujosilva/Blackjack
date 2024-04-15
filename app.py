@@ -36,7 +36,7 @@ class Baralho:
         self.baralho_completo['Espada'] = n1
         self.baralho_completo['Copas'] = n2
         self.baralho_completo['Paus'] = n3
-
+        print(self.baralho_completo)
         return(self.baralho_completo)
 
     #Distribuir cartas
