@@ -1,16 +1,19 @@
 from player import Player
 from dealer import Dealer
-from engine import Engine
 from deck import Deck
+from engine import Engine
+from actions import Actions
 
+actions = Actions()
 players = [
-    Player('Fernando', 14000),
-    Player('Gabriel', 5000),
-    Dealer('MrDealer', 0),
+    Player('++Fernando++', actions),
+    Player('++Gabriel++', actions)
 ]
 
-deck_inst = Deck()
+dealer =  Dealer('++Mr Dealer++', actions)
 
-engine = Engine(players, deck_inst)
+deck = Deck()
 
-engine.start()
+engine = Engine(players, dealer, deck)
+
+engine.run()

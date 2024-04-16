@@ -34,25 +34,21 @@ class Deck:
     def __init__(self):
         self.deck = []
 
-    def new_deck(self) -> List[Card]:
+    def new(self) -> List[Card]:
         '''
         4 cartas por nipe
         '''
         self.deck = [Card(name=card.name, suit=suit.value) for suit in list(Suits) for card in list(Cards)]
+        self.deck = self._set_card_points()
+        self._shuffle()
         return self.deck
         
-    def _update_deck(self, card_to_remove: Card):
-        new_deck = self.deck.copy()
-        for card in new_deck:
+    def update(self, card_to_remove: Card):
+        for card in self.deck:
             if card_to_remove.name == card.name and card.suit == card_to_remove.suit:
                 self.deck.remove(card)
-        return self.deck
     
-    def get_card(self) -> Card:
-        self._update_deck(self.deck[0])
-        return self.deck[0]
-              
-    def get_card_points(self):
+    def _set_card_points(self):
         mapp = {
             'ACE': 10,
             'TWO': 2,
@@ -72,7 +68,7 @@ class Deck:
             card.point = mapp.get(card.name)
         return self.deck
         
-    def shuffle_deck(self):
+    def _shuffle(self):
         print(f"Shuffling deck right now!")
         self.deck = random.sample(self.deck, len(self.deck))
-        return self.deck
+    

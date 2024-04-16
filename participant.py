@@ -1,74 +1,58 @@
 from deck import Card
+from rules import GameRules
 from typing import List
-from abc import ABC, abstractmethod
-from enum import Enum
+from deck import Deck
+from actions import Actions, PlayerAction
 
-class ParticipantAction(Enum):
-    HIT = 1
-    STAND = 2
-    DOUBLE = 3
-
-class ActionStrategy(ABC):
-    @abstractmethod
-    def execute(self, participant, deck):
-        """Executa a ação para o participante usando o deck fornecido."""
-        pass
-
-class HitStrategy(ActionStrategy):
-    def execute(self, participant, deck):
-        card = deck.get_card()
-        participant.update_hand(card)
-        participant.update_points(card.point)
-        if participant.get_points() > 21:
-            print(f"++{participant.name}++: Busted with: {participant.get_points()}")
-            
-class StandStrategy(ActionStrategy):
-    def execute(self, participant, deck):
-        print(f"++{participant.name}++ has decided to stand.")
-
-class DoubleStrategy(ActionStrategy):
-    def execute(self, participant, deck):
-        participant.current_bet *= 2  # Assuming you have a method to double the bet.
-        self.hit_strategy.execute(participant, deck)
-        print(f"++{participant.name}++ has doubled down.")
-
-
-class Participant:
-    def __init__(self, name: str, balance: int):
+class Participant(GameRules):
+    def __init__(self, name: str, action: Actions):
+        self.dealer = False
         self.name = name
-        self.hand_cards: List[Card] = []
+        self.hand: List[Card] = []
         self.points = 0
-        self.balance = balance
-        self.current_bet = 0
-        self.dealer = False #Default
-        self.current_action = ''
-        self.action_strategies = {
-            ParticipantAction.HIT: HitStrategy(),
-            ParticipantAction.STAND: StandStrategy(),
-            ParticipantAction.DOUBLE: DoubleStrategy()
-        }
+        self.action = action
+        self.current_action = None
+        super().__init__()
+        
+    def get_hand(self) -> List[Card]:
+        return self.hand
+    
     def get_points(self):
         return self.points
     
-    def update_points(self, new_point):
-       self.points = self.points + new_point
-    
-    def get_hand(self):
-        return self.hand_cards
-    
-    def update_hand(self, card: Card):
-        self.hand_cards.append(card)
+    def update_points(self, point: int):
+        self.points += point        
+
+    def udpate_hand(self, card: Card):
+        self.hand.append(card)
         
-    def update_balance(self, current_bet: int):
-        self.balance = self.balance - current_bet
+    def do_action(self, action: PlayerAction, deck: Deck):
+        action = self.action.get_action(action)
+        return action.do_action(self, deck)
     
-    @property
-    def is_dealer(self):
-        return self.dealer
-    
-    def execute_action(self, action: ParticipantAction, deck):
-        strategy = self.action_strategies.get(action)
-        if strategy:
-            strategy.execute(self, deck)
-        else:
-            raise ValueError("Invalid action")
+    def set_player_action(self, action: PlayerAction):
+        self.current_action = action
+        
+
+        # if all(player.current_action == PlayerAction.STAND for player in self.players):
+        #     print('All players deceided to stand')
+        #     while True:
+        #         if self.dealer.dealer_max_point:
+        #             winners = self._check_winners()
+        #             if not winners:
+        #                 print(f"Sorry, this game is mine!!! HAHAHAH\n\n{[player.name + ' - Score: ' + str(player.points) for player in self.players if player.name not in winners]}")
+        #                 for p in self.players:
+        #                     self._remove_player(p)
+        #                 break
+        #         dealer_card = self.dealer.do_action(PlayerAction.HIT, deck)
+        #         self._update_game_data(self.dealer, dealer_card)
+        #         if self.dealer.bust:
+        #             winners = self._check_winners()
+        #             print(winners)
+        #             if not winners:
+        #                 print(f"Sorry, this game is mine!!! HAHAHAH\n\n{[player.name + ' - Score: ' + str(player.points) for player in self.players if player.name not in winners]}")
+        #                 for p in self.players:
+        #                     self._remove_player(p)
+        #             break
+
+        # self._update_round()

@@ -1,95 +1,93 @@
-import time
-import sys
+from participant import Participant
+from actions import PlayerAction
 from deck import Deck
-from participant import Participant, ParticipantAction
 from typing import List
 
-class NoMoney(BaseException):
-    def __init__(self, message: str):
-        super().__init__(message)
-
 class Engine:
-    def __init__(self, participants: List[Participant], deck: Deck):
-        self.participants = participants
+    def __init__(self, players: List[Participant], dealer: Participant, deck: Deck):
+        self.players = players
         self.deck = deck
-        self.round = 1
-        self.dealer = self._get_dealer()
-
-    def _get_dealer(self):
-        for p in self.participants:
-            if self.is_dealer(p):
-                return p
-
-    def _get_player_by_name(self, name):
-        for p in self.participants:
-            if p.name == name:
-                return p
-
-    def _remove_player(self, name):
-        p = self._get_player_by_name(name)
-        if p.name == name:
-            print(f'{p.name} out for this round')
-            self.participants.remove(p)
-
-    def _set_player_bet(self, name: str, bet: int):
-        p = self._get_player_by_name(name)
-        return p.update_balance(bet)
-
-    def is_dealer(self, p: Participant):
-        return p.is_dealer
+        self.winners = []
+        self.current_round = 1
+        if self.current_round == 1:
+            print('Bets are closed, starting game')
+        self.dealer = dealer
     
-    def update_round(self):
-        self.round += 1
+    @property
+    def current_players(self):
+        return len(self.players)      
+    
+    @property
+    def stand_players(self):
+        return sum(1 for player in self.players if player.current_action == PlayerAction.STAND)
+    
+    def _update_round(self):
+        self.current_round += 1
 
-    def _player_action(self, p: Participant):
-        action_menu = "\n".join([f"{action.value} - {action.name}" for action in ParticipantAction])
-        try:
-            action = int(input(f"++{p.name}++: Choose an action:\n{action_menu}\n"))
-            participant_action = ParticipantAction(action)
-            p.execute_action(participant_action, self.deck)
-        except ValueError:
-            print("Invalid action. Please try again.")
+    def _remove_player(self, p):
+        self.players.remove(p)
         
-    def _get_bets(self):
-        participants = self.participants.copy()
-        for participant in participants:
-            if self.is_dealer(participant):
-                continue
-            bet = input(f'Put your bet: {participant.name}: ')
-            while True:
-                if isinstance(bet, str):
-                    bet = int(bet)
-                if bet == 0:
-                    self._remove_player(participant.name)
-                    break
-                elif bet > participant.balance:
-                    bet = input(f"Sorry, bet is out fo your budget, put another value lower than: {participant.balance}: ")
-                    bet = int(bet)
+    def _update_game_data(self, p: Participant, card):
+        p.update_points(card.point)
+        p.udpate_hand(card)
+        self.deck.update(card)
+
+    def _check_winners(self):
+        for player in self.players:
+            if not player.bust:
+                if self.dealer.points < player.points or self.dealer.points == player.points:
+                    self.winners.append(player.name)
+        return self.winners
+
+    def _player_action(self, deck):
+        print(f"Dealer points: {self.dealer.points}")
+        for player in self.players:
+            if player.bust:
+                self._remove_player(player)
+                print(f"Player: {player.name} busted with {str(player.points)} points")
+            action = input(f"Choose your action {player.name}:\n {[str(act.value) + ' - ' + act.name for act in PlayerAction]}: ")
+            action = int(action)
+            round_card = player.do_action(PlayerAction(action), deck)
+            if PlayerAction(action) == PlayerAction.HIT:
+                self._update_game_data(player, round_card)
+                if player.bust:
+                    self._remove_player(player)
+                    print(f"Player: {player.name} busted with {str(player.points)} points")
+                    
+                if player.bjack_rule:
+                    self.winners.append(player.name)
+                    self._remove_player(player)
+
+    def _first_round(self, deck):
+        i = 2 if self.current_round == 1 else 0
+        for _ in range(i):
+            for player in self.players:
+                round_card = player.do_action(PlayerAction.HIT, deck)
+                self._update_game_data(player, round_card)
+            dealer_card = self.dealer.do_action(PlayerAction.HIT, deck)
+            self._update_game_data(self.dealer, dealer_card)
+        self._update_round()
+        
+        
+    def run(self):
+        deck = self.deck.new()
+        
+        self._first_round(deck)
+        
+        while True:
+            self._player_action(deck)
+            if self.current_players == self.stand_players:
+                if not self.dealer.dealer_max_point and self.dealer.points <= 21:
+                    dealer_card = self.dealer.do_action(PlayerAction.HIT, deck)
+                    self._update_game_data(self.dealer, dealer_card)
+                    self._update_round()
+
+                print(f'Dealer reveal a hidden card: {self.dealer.hand[1].name} of {self.dealer.hand[1].suit}')
+                winners = self._check_winners()
+                if not winners:
+                    print('Dealer Winner')
                 else:
-                    self._set_player_bet(participant.name, bet)
-                    break
-        if len(self.participants) == 1:
-            print(f"Empty bets, waiting for new players!")
-            sys.exit()
-        else:
-            print(f'Bets done for: {", ".join([participant.name for participant in self.participants if not self.is_dealer(participant)])}, starting game')
-
-    def _set_card_points(self):
-        return self.deck.get_card_points()
-
-    def start(self):
-        if self.round == 1:
-            self.deck.new_deck()
-            self._set_card_points()
-            self._get_bets()
-            self.deck.shuffle_deck()
-
-        self.participants.remove(self.dealer)
-        game = 1
-        while game == 1:
-            print(f'Round: {self.round}')
-            for p in self.participants:
-                self.dealer.deal(self.deck, self.round, p)
-                print(f"++{p.name}++: Current Points: {p.get_points()}")
-                self._player_action(p)
-            self.update_round()
+                    for p in winners:
+                        print(f"Player: {p} wins!")
+                break
+        print(self.dealer.hand)
